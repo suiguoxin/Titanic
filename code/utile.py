@@ -1,15 +1,16 @@
 # -*- coding: utf-8 -*-
 import pandas as pd
 import numpy as np
-from sklearn.ensemble import RandomForestRegressor
 import matplotlib.pyplot as plt
-from sklearn import linear_model
-from sklearn.model_selection import learning_curve
-from sklearn.model_selection import train_test_split, cross_val_score
+from sklearn import linear_model, preprocessing
+from sklearn.ensemble import RandomForestRegressor
+from sklearn.model_selection import learning_curve, train_test_split, cross_val_score
+
+regex_features = 'Survived|Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*'
 
 
 # 使用 RandomForestClassifier 填补缺失的年龄属性
-def set_missing_ages(df):
+def set_missing_ages_train(df):
     # 把已有的数值型特征取出来丢进Random Forest Regressor中
     age_df = df[['Age', 'Fare', 'Parch', 'SibSp', 'Pclass']]
 
@@ -36,9 +37,48 @@ def set_missing_ages(df):
     return df, rfr
 
 
-def set_cabin_type(df):
+def set_missing_ages_test(data_test, rfr):
+    # 首先用同样的RandomForestRegressor模型填上丢失的年龄
+    tmp_df = data_test[['Age', 'Fare', 'Parch', 'SibSp', 'Pclass']]
+    null_age = tmp_df[data_test.Age.isnull()].as_matrix()
+
+    # 根据特征属性X预测年龄并补上
+    X = null_age[:, 1:]
+    predictedAges = rfr.predict(X)
+    data_test.loc[(data_test.Age.isnull()), 'Age'] = predictedAges
+    return data_test
+
+
+def __set_cabin_type(df):
     df.loc[(df.Cabin.notnull()), 'Cabin'] = "Yes"
     df.loc[(df.Cabin.isnull()), 'Cabin'] = "No"
+    return df
+
+
+def __set_dummies(data):
+    # 特征因子化
+    dummies_cabin = pd.get_dummies(data['Cabin'], prefix='Cabin')
+    dummies_embarked = pd.get_dummies(data['Embarked'], prefix='Embarked')
+    dummies_sex = pd.get_dummies(data['Sex'], prefix='Sex')
+    dummies_pclass = pd.get_dummies(data['Pclass'], prefix='Pclass')
+
+    df = pd.concat([data, dummies_cabin, dummies_embarked, dummies_sex, dummies_pclass], axis=1)
+    df.drop(['Pclass', 'Name', 'Sex', 'Ticket', 'Cabin', 'Embarked'], axis=1, inplace=True)
+    return df
+
+
+def feature_engineering(data):
+    data = __set_cabin_type(data)
+    df = __set_dummies(data)
+
+    # scaling
+    # add .values.reshape(-1, 1) to fix compilation error
+    scaler = preprocessing.StandardScaler()
+    age_scale_param = scaler.fit(df['Age'].values.reshape(-1, 1))
+    df['Age_scaled'] = scaler.fit_transform(df['Age'].values.reshape(-1, 1), age_scale_param)
+    fare_scale_param = scaler.fit(df['Fare'].values.reshape(-1, 1))
+    df['Fare_scaled'] = scaler.fit_transform(df['Fare'].values.reshape(-1, 1), fare_scale_param)
+
     return df
 
 
@@ -95,21 +135,21 @@ def plot_learning_curve(estimator, title, X, y, ylim=None, cv=None, n_jobs=1,
 def cross_validation(df):
     # 简单看看cv打分情况
     clf = linear_model.LogisticRegression(C=1.0, penalty='l1', tol=1e-6)
-    all_data = df.filter(regex='Survived|Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*')
+    all_data = df.filter(regex=regex_features)
     X = all_data.as_matrix()[:, 1:]
     y = all_data.as_matrix()[:, 0]
     print cross_val_score(clf, X, y, cv=5)
 
     # 分割数据，按照 训练数据:cv数据 = 7:3的比例
     split_train, split_cv = train_test_split(df, test_size=0.3, random_state=0)
-    train_df = split_train.filter(regex='Survived|Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*')
+    train_df = split_train.filter(regex=regex_features)
 
     # 生成模型
     clf = linear_model.LogisticRegression(C=1.0, penalty='l1', tol=1e-6)
     clf.fit(train_df.as_matrix()[:, 1:], train_df.as_matrix()[:, 0])
 
     # 对cross validation数据进行预测
-    cv_df = split_cv.filter(regex='Survived|Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*')
+    cv_df = split_cv.filter(regex=regex_features)
     predictions = clf.predict(cv_df.as_matrix()[:, 1:])
 
     origin_data_train = pd.read_csv("./../data/train.csv")
