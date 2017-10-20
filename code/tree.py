@@ -9,14 +9,15 @@ from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction import DictVectorizer
 from sklearn.pipeline import make_pipeline
 from sklearn.model_selection import cross_val_score
+from sklearn.ensemble import BaggingRegressor
 from utile import path_train, path_test, path_result
 
 with open(path_train, 'rt') as f:
     data_train = list(csv.DictReader(f))
 
-data_test = pd.read_csv("./../data/test.csv")  # data frame
+dtest = pd.read_csv(path_test)  # data frame
 with open(path_test, 'rt') as f:
-    dtest = list(csv.DictReader(f))  # a list of dict
+    data_test = list(csv.DictReader(f))  # a list of dict
 
 _all_xs = [{k: v for k, v in row.items() if k != 'Survived'} for row in data_train]
 _all_ys = np.array([int(row['Survived']) for row in data_train])
@@ -38,11 +39,11 @@ def feature_engineering(data):
 
         x['SibSp'] = int(x['SibSp'])
         x['Parch'] = int(x['Parch'])
-
         return
 
+
 feature_engineering(all_xs)
-feature_engineering(dtest)
+feature_engineering(data_test)
 
 train_xs, valid_xs, train_ys, valid_ys = train_test_split(
     all_xs, all_ys, test_size=0.25, random_state=0)
@@ -57,9 +58,13 @@ class CSCTransformer:
     def fit(self, *args):
         return self
 
+# score 0.77033
 clf = xgb.XGBClassifier()
+# score 0.76076
+bagging_clf = BaggingRegressor(clf, n_estimators=20, max_samples=0.8, max_features=1.0, bootstrap=True,
+                               bootstrap_features=False, n_jobs=-1)
 vec = DictVectorizer()
-pipeline = make_pipeline(vec, CSCTransformer(), clf)
+pipeline = make_pipeline(vec, CSCTransformer(), bagging_clf)
 
 
 def evaluate(_clf):
@@ -73,9 +78,9 @@ def train(_clf):
 
 
 def predict(_clf):
-    predictions = _clf.predict(dtest)
+    predictions = _clf.predict(data_test)
     result = pd.DataFrame(
-        {'PassengerId': data_test['PassengerId'].as_matrix(), 'Survived': predictions.astype(np.int32)})
+        {'PassengerId': dtest['PassengerId'].as_matrix(), 'Survived': predictions.astype(np.int32)})
     result.to_csv(path_result + 'xgboost_predictions.csv', index=False)
 
 

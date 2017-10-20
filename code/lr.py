@@ -4,12 +4,11 @@ import numpy as np
 from sklearn import linear_model
 from sklearn.ensemble import BaggingRegressor
 from utile import set_missing_ages_train, set_missing_ages_test, plot_learning_curve, cross_validation, \
-    feature_engineering, regex_features
+    feature_engineering
+from utile import path_train, path_test, path_result, regex_features
 
-path_result = './../result/'
-
-data_train = pd.read_csv("./../data/train.csv")
-data_test = pd.read_csv("./../data/test.csv")
+data_train = pd.read_csv(path_train)
+data_test = pd.read_csv(path_test)
 
 # feature engineering
 # TODO: delete port, discrete age
