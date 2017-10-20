@@ -4,16 +4,13 @@ import numpy as np
 from sklearn import linear_model
 from sklearn.ensemble import BaggingRegressor
 from utile import set_missing_ages_train, set_missing_ages_test, plot_learning_curve, cross_validation, \
-    feature_engineering
+    feature_engineering, regex_features
 
 path_result = './../result/'
 
 data_train = pd.read_csv("./../data/train.csv")
 data_test = pd.read_csv("./../data/test.csv")
 
-regex_features = 'Survived|Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*'
-
-# data pre-processing
 # feature engineering
 # TODO: delete port, discrete age
 data_train, rfr = set_missing_ages_train(data_train)
@@ -40,13 +37,12 @@ plot_learning_curve(bagging_clf, u"Learning Curve", X, y)
 bad_cases = cross_validation(df_train)
 
 # test data pre-processing, same as in train data
-data_test.loc[(data_test.Fare.isnull()), 'Fare'] = 0
 data_test = set_missing_ages_test(data_test, rfr)
 
 # feature engineering
 df_test = feature_engineering(data_test)
 # 用正则取出我们要的属性值
-df_test= df_test.filter(regex=regex_features)
+df_test = df_test.filter(regex=regex_features)
 
 # prediction
 # predictions = clf.predict(test)

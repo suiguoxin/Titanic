@@ -6,7 +6,12 @@ from sklearn import linear_model, preprocessing
 from sklearn.ensemble import RandomForestRegressor
 from sklearn.model_selection import learning_curve, train_test_split, cross_val_score
 
-regex_features = 'Survived|Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*'
+path_train = "./../data/train.csv"
+path_test = "./../data/test.csv"
+path_result = './../result/'
+
+# regex_features = 'Survived|Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Embarked_.*|Sex_.*|Pclass_.*'
+regex_features = 'Survived|Age_.*|SibSp|Parch|Fare_.*|Cabin_.*|Sex_.*|Pclass_.*'
 
 
 # 使用 RandomForestClassifier 填补缺失的年龄属性
@@ -68,6 +73,7 @@ def __set_dummies(data):
 
 
 def feature_engineering(data):
+    data.loc[(data.Fare.isnull()), 'Fare'] = 0
     data = __set_cabin_type(data)
     df = __set_dummies(data)
 
