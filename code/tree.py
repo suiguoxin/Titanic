@@ -9,7 +9,7 @@ from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction import DictVectorizer
 from sklearn.pipeline import make_pipeline
 from sklearn.model_selection import cross_val_score
-from sklearn.ensemble import BaggingRegressor
+
 from utile import path_train, path_test, path_result
 
 with open(path_train, 'rt') as f:
@@ -60,11 +60,8 @@ class CSCTransformer:
 
 # score 0.77033
 clf = xgb.XGBClassifier()
-# score 0.76076
-bagging_clf = BaggingRegressor(clf, n_estimators=20, max_samples=0.8, max_features=1.0, bootstrap=True,
-                               bootstrap_features=False, n_jobs=-1)
 vec = DictVectorizer()
-pipeline = make_pipeline(vec, CSCTransformer(), bagging_clf)
+pipeline = make_pipeline(vec, CSCTransformer(), clf)
 
 
 def evaluate(_clf):
