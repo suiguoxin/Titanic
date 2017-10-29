@@ -125,6 +125,7 @@ modelfit(gbm_tuned)
 
 # prediction
 # predictions = clf.predict(test)
+# 0.79904 on submission
 predictions = gbm_tuned.predict(df_test)
 result = pd.DataFrame({'PassengerId': test_df['PassengerId'].as_matrix(), 'Survived': predictions.astype(np.int32)})
 result.to_csv(path_result + 'gbm_predictions.csv', index=False)
