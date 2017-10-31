@@ -23,7 +23,7 @@ def fe_title_name(combine):
         dataset['Title'] = dataset['Title'].fillna('Other')
 
     for dataset in combine:
-        dataset = dataset.drop('Name', axis=1)
+        dataset.drop('Name', axis=1)
 
 
 # converting Sex feature to a new feature called Gender
@@ -54,8 +54,6 @@ def fe_age(train_df, test_df, combine):
     combine = [train_df, test_df]
 
     return train_df, test_df, combine
-
-
 '''
     # Replace Age with ordinals based on these bands
     train_df['AgeBand'] = pd.cut(train_df['Age'], 5)
@@ -79,9 +77,6 @@ def fe_embarked(train_df, test_df, combine):
     freq_port = train_df.Embarked.dropna().mode()[0]
     for dataset in combine:
         dataset['Embarked'] = dataset['Embarked'].fillna(freq_port)
-
-    # for dataset in combine:
-    #     dataset['Embarked'] = dataset['Embarked'].map({'S': 0, 'C': 1, 'Q': 2}).astype(int)
 
     return train_df, test_df, combine
 
@@ -118,29 +113,14 @@ def fe_family(train_df, test_df, combine):
 
 
 def fe_dummy(train_df, test_df):
-    dummy_features = ['Embarked', 'Sex', 'Pclass', 'Title', 'Ticket', 'Cabin']
-    datasets = []
-    for dataset in [train_df, test_df]:
-        for f in dummy_features:
-            dummy = pd.get_dummies(dataset[f], prefix=f)
-            dataset = pd.concat([dataset, dummy], axis=1)
-
-        dataset.drop(dummy_features, axis=1,
-                     inplace=True)
-
-        datasets.append(dataset)
-
-    return datasets
-
-
-def fe_dummy2(train_df, test_df):
     df_train_comb = train_df
     df_train_comb['TrainTest'] = 'Train'
     df_test_comb = test_df
     df_test_comb['TrainTest'] = 'Test'
 
     df_total = df_train_comb.append(df_test_comb)
-    df_total = pd.get_dummies(df_total, drop_first=True)
+    # df_total = pd.get_dummies(df_total, drop_first=True)
+    df_total = pd.get_dummies(df_total)
 
     train_df = df_total[df_total['TrainTest_Train'] == 1].drop(['TrainTest_Train'], axis=1)
     test_df = df_total[df_total['TrainTest_Train'] == 0].drop(['TrainTest_Train'], axis=1)
@@ -152,25 +132,22 @@ def fe(train_df, test_df):
     # train_df = train_df.drop(['Ticket', 'Cabin'], axis=1)
     # test_df = test_df.drop(['Ticket', 'Cabin'], axis=1)
     for dataset in [train_df, test_df]:
-        dataset['Ticket'] = dataset['Ticket'].str[0:1]
-        dataset['Cabin'] = dataset['Cabin'].str[0:1]
+        dataset['Ticket'] = dataset['Ticket'].str[0]
+        dataset['Cabin'] = dataset['Cabin'].str[0]
         dataset['Cabin'] = dataset['Cabin'].fillna('Unknown')
 
     combine = [train_df, test_df]
 
     fe_title_name(combine)
-
     fe_sex(combine)
     train_df, test_df, combine = fe_age(train_df, test_df, combine)
     train_df, test_df, combine = fe_family(train_df, test_df, combine)
-
     train_df, test_df, combine = fe_embarked(train_df, test_df, combine)
     train_df, test_df = fe_fare(train_df, test_df)
+    train_df, test_df = fe_dummy(train_df, test_df)
 
-    train_df, test_df = fe_dummy2(train_df, test_df)
-
-    X_train = train_df.drop(["Survived", 'PassengerId'], axis=1)
-    Y_train = train_df["Survived"]
+    X = train_df.drop(["Survived", 'PassengerId'], axis=1)
+    y = train_df["Survived"]
     X_test = test_df.drop(["Survived", 'PassengerId'], axis=1).copy()
 
-    return X_train, Y_train, X_test
+    return X, y, X_test
