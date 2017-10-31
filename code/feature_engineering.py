@@ -58,7 +58,7 @@ def fe_age(train_df, test_df, combine):
         dataset.loc[(dataset['Age'] > 16) & (dataset['Age'] <= 32), 'Age'] = 1
         dataset.loc[(dataset['Age'] > 32) & (dataset['Age'] <= 48), 'Age'] = 2
         dataset.loc[(dataset['Age'] > 48) & (dataset['Age'] <= 64), 'Age'] = 3
-        dataset.loc[dataset['Age'] > 64, 'Age']
+        dataset.loc[dataset['Age'] > 64, 'Age'] = 4
 
     # remove the AgeBand feature.
     train_df = train_df.drop(['AgeBand'], axis=1)
@@ -109,6 +109,29 @@ def fe_family(train_df, test_df, combine):
 
     return train_df, test_df, combine
 
+
+def fe_dummy(train_df, test_df):
+    datasets = []
+    for dataset in [train_df, test_df]:
+        dummies_embarked = pd.get_dummies(dataset['Embarked'], prefix='Embarked')
+        dummies_sex = pd.get_dummies(dataset['Sex'], prefix='Sex')
+        dummies_pclass = pd.get_dummies(dataset['Pclass'], prefix='Pclass')
+        dummies_title = pd.get_dummies(dataset['Title'], prefix='Title')
+        dummies_age = pd.get_dummies(dataset['Age'], prefix='Age')
+        dummies_fare = pd.get_dummies(dataset['Fare'], prefix='Fare')
+
+        dataset = pd.concat(
+            [dataset, dummies_embarked, dummies_sex, dummies_pclass, dummies_title, dummies_age,
+             dummies_fare],
+            axis=1)
+        dataset.drop(['Embarked', 'Sex', 'Pclass', 'Title', 'Age', 'Fare'], axis=1,
+                     inplace=True)
+
+        datasets.append(dataset)
+
+    return datasets
+
+
 def fe(train_df, test_df):
     train_df = train_df.drop(['Ticket', 'Cabin'], axis=1)
     test_df = test_df.drop(['Ticket', 'Cabin'], axis=1)
@@ -131,6 +154,8 @@ def fe(train_df, test_df):
 
     train_df, test_df, combine = fe_embarked(train_df, test_df, combine)
     train_df, test_df, combine = fe_fare(train_df, test_df, combine)
+
+    train_df, test_df = fe_dummy(train_df, test_df)
 
     X_train = train_df.drop("Survived", axis=1)
     Y_train = train_df["Survived"]
