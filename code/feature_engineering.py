@@ -1,153 +1,105 @@
-import numpy as np
 import pandas as pd
 
 
 def fe_title_name(combine):
-    # retain the new Title feature for model training
-    for dataset in combine:
-        dataset['Title'] = dataset.Name.str.extract(' ([A-Za-z]+)\.', expand=False)
+    title_mapping = {
+        "Capt": "Officer",
+        "Col": "Officer",
+        "Major": "Officer",
+        "Jonkheer": "Royalty",
+        "Don": "Royalty",
+        "Sir": "Royalty",
+        "Dr": "Officer",
+        "Rev": "Officer",
+        "the Countess": "Royalty",
+        "Dona": "Royalty",
+        "Mme": "Mrs",
+        "Mlle": "Miss",
+        "Ms": "Mrs",
+        "Mr": "Mr",
+        "Mrs": "Mrs",
+        "Miss": "Miss",
+        "Master": "Master",
+        "Lady": "Royalty"
+    }
 
-    # replace many titles with a more common name or classify them as Rare.
-    for dataset in combine:
-        dataset['Title'] = dataset['Title'].replace(['Lady', 'Countess', 'Capt', 'Col', \
-                                                     'Don', 'Dr', 'Major', 'Rev', 'Sir', 'Jonkheer', 'Dona'], 'Rare')
-
-        dataset['Title'] = dataset['Title'].replace('Mlle', 'Miss')
-        dataset['Title'] = dataset['Title'].replace('Ms', 'Miss')
-        dataset['Title'] = dataset['Title'].replace('Mme', 'Mrs')
-
-    # convert the categorical titles to ordinal.
-    # title_mapping = {"Mr": 1, "Miss": 2, "Mrs": 3, "Master": 4, "Rare": 5}
-    for dataset in combine:
-        # dataset['Title'] = dataset['Title'].map(title_mapping)
-        dataset['Title'] = dataset['Title'].fillna('Other')
-
-    for dataset in combine:
-        dataset.drop('Name', axis=1)
-
-
-# converting Sex feature to a new feature called Gender
-def fe_sex(combine):
-    for dataset in combine:
-        dataset['Sex'] = dataset['Sex'].map({'female': 1, 'male': 0}).astype(int)
+    combine['Title'] = combine.Name.str.extract(' ([A-Za-z]+)\.', expand=False)
+    combine['Title'] = combine.Title.map(title_mapping)
+    combine['Title'] = combine['Title'].fillna('Other')
+    combine.drop('Name', axis=1, inplace=True)
 
 
-def fe_age(train_df, test_df, combine):
-    guess_ages = np.zeros((2, 3))
-    # iterate over Sex (0 or 1) and Pclass (1, 2, 3) to calculate guessed values of Age for the six combinations.
-    for dataset in combine:
-        for i in range(0, 2):
-            for j in range(0, 3):
-                guess_df = dataset[(dataset['Sex'] == i) & (dataset['Pclass'] == j + 1)]['Age'].dropna()
+def fe_age(combine):
+    # iterate over Sex (0 or 1), Pclass (1, 2, 3) and titles
+    # to calculate guessed values of Age for the six combinations.
+    sexes = ['female', 'male']
+    titles = ['Officer', 'Royalty', 'Mrs', 'Mr', 'Miss', 'Master', 'Other']
+    for i, sex in enumerate(sexes):
+        for j in range(0, 3):
+            for k, title in enumerate(titles):
+                guess_df = \
+                    combine[(combine['Sex'] == sex) & (combine['Pclass'] == j + 1) & (combine['Title'] == title)][
+                        'Age'].dropna()
+
+                if guess_df.empty:
+                    guess_df = \
+                        combine[(combine['Sex'] == sex) & (combine['Pclass'] == j + 1)]['Age'].dropna()
+
                 age_guess = guess_df.median()
 
                 # Convert random age float to nearest .5 age
-                guess_ages[i, j] = int(age_guess / 0.5 + 0.5) * 0.5
-
-        for i in range(0, 2):
-            for j in range(0, 3):
-                dataset.loc[(dataset.Age.isnull()) & (dataset.Sex == i) & (dataset.Pclass == j + 1), \
-                            'Age'] = guess_ages[i, j]
-
-        dataset['Age'] = dataset['Age'].astype(int)
-
-    combine = [train_df, test_df]
-
-    return train_df, test_df, combine
-'''
-    # Replace Age with ordinals based on these bands
-    train_df['AgeBand'] = pd.cut(train_df['Age'], 5)
-    train_df[['AgeBand', 'Survived']].groupby(['AgeBand'], as_index=False).mean().sort_values(by='AgeBand',
-                                                                                              ascending=True)
-
-    for dataset in combine:
-        dataset.loc[dataset['Age'] <= 16, 'Age'] = 0
-        dataset.loc[(dataset['Age'] > 16) & (dataset['Age'] <= 32), 'Age'] = 1
-        dataset.loc[(dataset['Age'] > 32) & (dataset['Age'] <= 48), 'Age'] = 2
-        dataset.loc[(dataset['Age'] > 48) & (dataset['Age'] <= 64), 'Age'] = 3
-        dataset.loc[dataset['Age'] > 64, 'Age'] = 4
-
-    # remove the AgeBand feature.
-    train_df = train_df.drop(['AgeBand'], axis=1)
-'''
+                age_guess = int(age_guess / 0.5 + 0.5) * 0.5
+                combine.loc[(combine.Age.isnull()) & (combine.Sex == sex) & (combine.Pclass == j + 1) & (
+                    combine['Title'] == title), 'Age'] = age_guess
 
 
-def fe_embarked(train_df, test_df, combine):
+def fe_embarked(combine):
     # fill the two missing values of embarked in training dataset with the most common occurance
-    freq_port = train_df.Embarked.dropna().mode()[0]
-    for dataset in combine:
-        dataset['Embarked'] = dataset['Embarked'].fillna(freq_port)
-
-    return train_df, test_df, combine
+    freq_port = combine.Embarked.dropna().mode()[0]
+    combine['Embarked'] = combine['Embarked'].fillna(freq_port)
 
 
-def fe_fare(train_df, test_df):
-    test_df['Fare'].fillna(test_df['Fare'].dropna().median(), inplace=True)
-
-    # train_df['FareBand'] = pd.qcut(train_df['Fare'], 4)
-    # for dataset in combine:
-    #     dataset.loc[dataset['Fare'] <= 7.91, 'Fare'] = 0
-    #     dataset.loc[(dataset['Fare'] > 7.91) & (dataset['Fare'] <= 14.454), 'Fare'] = 1
-    #     dataset.loc[(dataset['Fare'] > 14.454) & (dataset['Fare'] <= 31), 'Fare'] = 2
-    #     dataset.loc[dataset['Fare'] > 31, 'Fare'] = 3
-    #     dataset['Fare'] = dataset['Fare'].astype(int)
-    #
-    # train_df = train_df.drop(['FareBand'], axis=1)
-
-    return train_df, test_df
+def fe_fare(combine):
+    combine['Fare'].fillna(combine['Fare'].dropna().median(), inplace=True)
 
 
-def fe_family(train_df, test_df, combine):
-    for dataset in combine:
-        dataset['FamilySize'] = dataset['SibSp'] + dataset['Parch'] + 1
-
-    for dataset in combine:
-        dataset['IsAlone'] = 0
-        dataset.loc[dataset['FamilySize'] == 1, 'IsAlone'] = 1
-
-    train_df = train_df.drop(['Parch', 'SibSp', 'FamilySize'], axis=1)
-    test_df = test_df.drop(['Parch', 'SibSp', 'FamilySize'], axis=1)
-    combine = [train_df, test_df]
-
-    return train_df, test_df, combine
+def fe_family(combine):
+    combine['FamilySize'] = combine['SibSp'] + combine['Parch'] + 1
+    combine['IsAlone'] = 0
+    combine.loc[combine['FamilySize'] == 1, 'IsAlone'] = 1
+    combine.drop(['Parch', 'SibSp', 'FamilySize'], axis=1, inplace=True)
 
 
-def fe_dummy(train_df, test_df):
-    df_train_comb = train_df
-    df_train_comb['TrainTest'] = 'Train'
-    df_test_comb = test_df
-    df_test_comb['TrainTest'] = 'Test'
-
-    df_total = df_train_comb.append(df_test_comb)
-    # df_total = pd.get_dummies(df_total, drop_first=True)
-    df_total = pd.get_dummies(df_total)
-
-    train_df = df_total[df_total['TrainTest_Train'] == 1].drop(['TrainTest_Train'], axis=1)
-    test_df = df_total[df_total['TrainTest_Train'] == 0].drop(['TrainTest_Train'], axis=1)
-
-    return train_df, test_df
+def fe_dummy(combine):
+    return pd.get_dummies(combine)
 
 
 def fe(train_df, test_df):
-    # train_df = train_df.drop(['Ticket', 'Cabin'], axis=1)
-    # test_df = test_df.drop(['Ticket', 'Cabin'], axis=1)
-    for dataset in [train_df, test_df]:
-        dataset['Ticket'] = dataset['Ticket'].str[0]
-        dataset['Cabin'] = dataset['Cabin'].str[0]
-        dataset['Cabin'] = dataset['Cabin'].fillna('Unknown')
+    y = train_df["Survived"]
+    train_df.drop("Survived", 1, inplace=True)
+    train_df['TrainTest'] = 1
+    test_df['TrainTest'] = 0
 
-    combine = [train_df, test_df]
+    combine = train_df.append(test_df)
+
+    combine['Ticket'] = combine['Ticket'].str[0]
+    combine['Cabin'] = combine['Cabin'].str[0]
+    combine['Cabin'] = combine['Cabin'].fillna('U')
 
     fe_title_name(combine)
-    fe_sex(combine)
-    train_df, test_df, combine = fe_age(train_df, test_df, combine)
-    train_df, test_df, combine = fe_family(train_df, test_df, combine)
-    train_df, test_df, combine = fe_embarked(train_df, test_df, combine)
-    train_df, test_df = fe_fare(train_df, test_df)
-    train_df, test_df = fe_dummy(train_df, test_df)
+    fe_age(combine)
+    fe_family(combine)
+    fe_embarked(combine)
+    fe_fare(combine)
+    combine = fe_dummy(combine)
 
-    X = train_df.drop(["Survived", 'PassengerId'], axis=1)
-    y = train_df["Survived"]
-    X_test = test_df.drop(["Survived", 'PassengerId'], axis=1).copy()
+    train_df = combine[combine['TrainTest'] == 1].drop(['TrainTest'], axis=1)
+    test_df = combine[combine['TrainTest'] == 0].drop(['TrainTest'], axis=1)
+
+    train_df.info()
+    test_df.info()
+
+    X = train_df.drop('PassengerId', axis=1)
+    X_test = test_df.drop('PassengerId', axis=1).copy()
 
     return X, y, X_test
