@@ -54,11 +54,11 @@ def param_n_estimators():
     print gsearch.best_params_, gsearch.best_score_
 
 
-# 0.87643 max_depth=3,  min_child_weight=1 0.87807 7 5
+# 0.87643 max_depth=5,  min_child_weight=5
 def param_min_child_max_depth():
-    param_test = {'max_depth': range(2, 10, 1), 'min_child_weight': range(1, 13, 1)}
+    param_test = {'max_depth': range(1, 10, 1), 'min_child_weight': range(1, 13, 1)}
     gsearch = GridSearchCV(
-        estimator=XGBClassifier(learning_rate=0.1, n_estimators=160,
+        estimator=XGBClassifier(learning_rate=0.1, n_estimators=90,
                                 gamma=0, subsample=0.9,
                                 colsample_bytree=0.9, objective='binary:logistic', nthread=-1,
                                 scale_pos_weight=1, seed=0),
@@ -67,12 +67,12 @@ def param_min_child_max_depth():
     print gsearch.best_params_, gsearch.best_score_
 
 
-# 0.87643 gamma=0.0
+# 0.87643 gamma=1.0
 def param_gamma():
     param_test = {'gamma': np.arange(0, 1.1, 0.1)}
     gsearch = GridSearchCV(
-        estimator=XGBClassifier(learning_rate=0.1, n_estimators=160,
-                                max_depth=8, min_child_weight=6, subsample=0.9,
+        estimator=XGBClassifier(learning_rate=0.1, n_estimators=90,
+                                max_depth=5, min_child_weight=5, subsample=0.9,
                                 colsample_bytree=0.9, objective='binary:logistic', nthread=-1,
                                 scale_pos_weight=1, seed=0),
         param_grid=param_test, scoring='roc_auc', n_jobs=-1, cv=5, verbose=1)
@@ -80,12 +80,12 @@ def param_gamma():
     print gsearch.best_params_, gsearch.best_score_
 
 
-# 0.87643 subsample=0.9, colsample_bytree=1
+# 0.87643 subsample=0.6, colsample_bytree=0.9
 def param_subsample_colsample_bytree():
     param_test = {'subsample': np.arange(0.6, 1.05, 0.1), 'colsample_bytree': np.arange(0.6, 1.05, 0.1)}
     gsearch = GridSearchCV(
-        estimator=XGBClassifier(learning_rate=0.1, n_estimators=160,
-                                max_depth=8, min_child_weight=6, gamma=0.0,
+        estimator=XGBClassifier(learning_rate=0.1, n_estimators=90,
+                                max_depth=5, min_child_weight=5, gamma=1.0,
                                 objective='binary:logistic', nthread=-1,
                                 scale_pos_weight=1, seed=0),
         param_grid=param_test, scoring='roc_auc', n_jobs=-1, cv=5, verbose=1)
@@ -97,8 +97,8 @@ def param_subsample_colsample_bytree():
 def param_reg_alpha():
     param_test = {'reg_alpha': [1e-3, 1e-2, 0.1, 1, 100]}
     gsearch = GridSearchCV(
-        estimator=XGBClassifier(learning_rate=0.1, n_estimators=160,
-                                max_depth=8, min_child_weight=6, gamma=0.0,
+        estimator=XGBClassifier(learning_rate=0.1, n_estimators=90,
+                                max_depth=5, min_child_weight=5, gamma=1.0,
                                 subsample=0.9, colsample_bytree=0.9,
                                 objective='binary:logistic', nthread=-1,
                                 scale_pos_weight=1, seed=0),
@@ -109,13 +109,13 @@ def param_reg_alpha():
 
 # param_n_estimators()
 # param_min_child_max_depth()
-# param_gamma()
-# param_subsample_colsample_bytree()
-# param_reg_alpha()
+param_gamma()
+param_subsample_colsample_bytree()
+param_reg_alpha()
 
 # 0.9012
-clf_tuned = XGBClassifier(learning_rate=0.01, n_estimators=1600,
-                          max_depth=8, min_child_weight=6, gamma=0.0,
+clf_tuned = XGBClassifier(learning_rate=0.01, n_estimators=900,
+                          max_depth=5, min_child_weight=5, gamma=1.0,
                           subsample=0.9, colsample_bytree=0.9,
                           objective='binary:logistic', nthread=-1,
                           scale_pos_weight=1, seed=0, reg_alpha=1e-3)

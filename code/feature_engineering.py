@@ -52,9 +52,17 @@ def fe_age(combine):
                 combine.loc[(combine.Age.isnull()) & (combine.Sex == sex) & (combine.Pclass == j + 1) & (
                     combine['Title'] == title), 'Age'] = age_guess
 
+    combine.loc[combine['Age'] <= 16, 'Age'] = 1
+    combine.loc[(combine['Age'] > 16) & (combine['Age'] <= 32), 'Age'] = 2
+    combine.loc[(combine['Age'] > 32) & (combine['Age'] <= 48), 'Age'] = 3
+    combine.loc[(combine['Age'] > 48) & (combine['Age'] <= 64), 'Age'] = 4
+    combine.loc[combine['Age'] > 64, 'Age'] = 5
+
+    combine['Age'] = combine['Age'].astype(int)
+
 
 def fe_embarked(combine):
-    # fill the two missing values of embarked in training dataset with the most common occurance
+    # fill the two missing values of embarked in training combine with the most common occurance
     freq_port = combine.Embarked.dropna().mode()[0]
     combine['Embarked'] = combine['Embarked'].fillna(freq_port)
 
@@ -62,16 +70,26 @@ def fe_embarked(combine):
 def fe_fare(combine):
     combine['Fare'].fillna(combine['Fare'].dropna().median(), inplace=True)
 
+    combine.loc[combine['Fare'] <= 7.91, 'Fare'] = 0
+    combine.loc[(combine['Fare'] > 7.91) & (combine['Fare'] <= 14.454), 'Fare'] = 1
+    combine.loc[(combine['Fare'] > 14.454) & (combine['Fare'] <= 31), 'Fare'] = 2
+    combine.loc[combine['Fare'] > 31, 'Fare'] = 3
+
+    combine['Age'] = combine['Age'].astype(int)
+
 
 def fe_family(combine):
     combine['FamilySize'] = combine['SibSp'] + combine['Parch'] + 1
-    combine['IsAlone'] = 0
-    combine.loc[combine['FamilySize'] == 1, 'IsAlone'] = 1
-    combine.drop(['Parch', 'SibSp', 'FamilySize'], axis=1, inplace=True)
+
+    combine.loc[combine['FamilySize'] == 1, 'FamilySize'] = 0
+    combine.loc[(combine['FamilySize'] >= 2) & (combine['FamilySize'] <= 4), 'FamilySize'] = 1
+    combine.loc[combine['FamilySize'] >= 5, 'FamilySize'] = 2
+
+    combine.drop(['Parch', 'SibSp'], axis=1, inplace=True)
 
 
 def fe_dummy(combine):
-    return pd.get_dummies(combine)
+    return pd.get_dummies(combine, columns=['Age', 'Cabin', 'Embarked', 'Ticket', 'Fare', 'Sex', 'Pclass', 'Title', 'FamilySize'])
 
 
 def fe(train_df, test_df):
