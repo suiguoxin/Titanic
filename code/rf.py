@@ -4,7 +4,7 @@ import pandas as pd
 from sklearn.ensemble import RandomForestClassifier
 from utile import path_train, path_test, path_result
 
-from feature_engineering import fe, fe_title, fe_sex, fe_age, fe_embarked, fe_fare, fe_family
+from feature_engineering import fe
 
 train_df = pd.read_csv(path_train)
 test_df = pd.read_csv(path_test)
@@ -24,4 +24,4 @@ submission = pd.DataFrame({
     "PassengerId": test_df["PassengerId"],
     "Survived": Y_pred
 })
-submission.to_csv(path_result + 'kernel.csv', index=False)
+submission.to_csv(path_result + 'rf_predictions.csv', index=False)

@@ -2,7 +2,6 @@
 import pandas as pd
 import numpy as np
 import xgboost as xgb
-from xgboost.sklearn import XGBClassifier
 
 from sklearn import metrics  # Additional scklearn functions
 from sklearn.model_selection import GridSearchCV  # Perforing grid search
@@ -33,29 +32,7 @@ NFOLDS = 5  # set folds for out-of-fold prediction
 kf = KFold(n_splits=NFOLDS, random_state=SEED)
 
 
-# Class to extend the Sklearn classifier
-class SklearnHelper(object):
-    def __init__(self, clf, seed=0, params=None):
-        params['random_state'] = seed
-        self.clf = clf(**params)
-
-    def train(self, x_train, y_train):
-        self.clf.fit(x_train, y_train)
-
-    def predict(self, x):
-        return self.clf.predict(x)
-
-    def predict_proba(self, x):
-        return self.clf.predict_proba(x)
-
-    def fit(self, x, y):
-        return self.clf.fit(x, y)
-
-    def feature_importances(self, x, y):
-        print(self.clf.fit(x, y).feature_importances_)
-
-
-def get_oof(clf, x_train, y_train, x_test):
+def get_oof(clf, x_train, y_train, x_test, proba=True):
     oof_train = np.zeros((ntrain,))
     oof_test = np.zeros((ntest,))
     oof_test_skf = np.empty((NFOLDS, ntest))
@@ -67,8 +44,12 @@ def get_oof(clf, x_train, y_train, x_test):
 
         clf.fit(x_tr, y_tr)
 
-        oof_train[test_index] = clf.predict_proba(x_te)[:, 1]
-        oof_test_skf[i, :] = clf.predict_proba(x_test)[:, 1]
+        if proba:
+            oof_train[test_index] = clf.predict_proba(x_te)[:, 1]
+            oof_test_skf[i, :] = clf.predict_proba(x_test)[:, 1]
+        else:
+            oof_train[test_index] = clf.predict(x_te).astype(int)
+            oof_test_skf[i, :] = clf.predict(x_test).astype(int)
 
     oof_test[:] = oof_test_skf.mean(axis=0)
     return oof_train.reshape(-1, 1), oof_test.reshape(-1, 1)
@@ -78,145 +59,133 @@ def get_oof(clf, x_train, y_train, x_test):
 svc_params = {
     'kernel': 'linear',
     'C': 0.025,
-    'probability': True
+    'probability': True,
+    'random_state': SEED
 }
 
-svc = SklearnHelper(clf=SVC, seed=SEED, params=svc_params)
-knn = KNeighborsClassifier(n_neighbors=3)
-lr = LogisticRegression()
-rf = RandomForestClassifier(n_estimators=100)
-gaussian = GaussianNB()
+svc = SVC(**svc_params)
+knn = KNeighborsClassifier(n_neighbors=4)
+# lr = LogisticRegression()
+# rf = RandomForestClassifier(n_estimators=50)
+# gaussian = GaussianNB()
+# perceptron = Perceptron()
+# test = LinearSVC()
 
 svc_oof_train, svc_oof_test = get_oof(svc, X, y, df_test)
 knn_oof_train, knn_oof_test = get_oof(knn, X, y, df_test)
-lr_oof_train, lr_oof_test = get_oof(lr, X, y, df_test)
-rf_oof_train, rf_oof_test = get_oof(rf, X, y, df_test)
-gaussian_oof_train, gaussian_oof_test = get_oof(gaussian, X, y, df_test)
+# lr_oof_train, lr_oof_test = get_oof(lr, X, y, df_test)
+# rf_oof_train, rf_oof_test = get_oof(rf, X, y, df_test)
+# gaussian_oof_train, gaussian_oof_test = get_oof(gaussian, X, y, df_test)
+# perceptron_oof_train, perceptron_oof_test = get_oof(perceptron, X, y, df_test, proba=False)
+# test_oof_train, test_oof_test = get_oof(test, X, y, df_test, proba=False)
 
 base_predictions_train = pd.DataFrame({'SVC': svc_oof_train.ravel(),
                                        'KNN': knn_oof_train.ravel(),
-                                       'LR': lr_oof_train.ravel(),
-                                       'RF': rf_oof_train.ravel(),
-                                       'Gaussian': gaussian_oof_train.ravel()
+                                       # 'LR': lr_oof_train.ravel(),
+                                       # 'RF': rf_oof_train.ravel()
+                                       # 'Gaussian': gaussian_oof_train.ravel()
+                                       # 'Perceptron': perceptron_oof_train.ravel()
+                                       # 'Test': test_oof_train.ravel()
                                        })
 
 base_predictions_test = pd.DataFrame({'SVC': svc_oof_test.ravel(),
                                       'KNN': knn_oof_test.ravel(),
-                                      'LR': lr_oof_test.ravel(),
-                                      'RF': rf_oof_test.ravel(),
-                                      'Gaussian': gaussian_oof_test.ravel()
+                                      # 'LR': lr_oof_test.ravel(),
+                                      # 'RF': rf_oof_test.ravel()
+                                      # 'Gaussian': gaussian_oof_test.ravel()
+                                      # 'Perceptron': perceptron_oof_test.ravel()
+                                      # 'Test': test_oof_test.ravel()
                                       })
 
 X = pd.concat([X, base_predictions_train], axis=1)
 df_test = pd.concat([df_test, base_predictions_test], axis=1)
 
+clf = xgb.XGBClassifier()
 
-def modelfit(alg):
+
+def model_fit(early_stopping_rounds=25):
+    global clf
     cv_folds = 5
-    early_stopping_rounds = 60
-    xgb_param = alg.get_params()
-    xgtrain = xgb.DMatrix(X, label=y)
-    cv_result = xgb.cv(xgb_param, xgtrain, num_boost_round=xgb_param['n_estimators'], nfold=cv_folds, metrics='auc',
+    early_stopping_rounds = early_stopping_rounds
+    dtrain = xgb.DMatrix(X, label=y)
+    params = clf.get_params()
+    cv_result = xgb.cv(params, dtrain, num_boost_round=500, nfold=cv_folds, metrics='auc',
                        early_stopping_rounds=early_stopping_rounds)
 
-    alg.set_params(n_estimators=cv_result.shape[0])
-    alg.fit(X, y)
+    best_iteration = cv_result.shape[0]
+    test_auc_mean = cv_result['test-auc-mean'][best_iteration - 1]
+    print "Best iteration: %d" % best_iteration
+    print "test auc mean: %f" % test_auc_mean
+    clf.set_params(n_estimators=best_iteration)
+    clf.fit(X, y)
 
-    y_hat = alg.predict(X)
-    y_hat_proba = alg.predict_proba(X)[:, 1]
-
-    # Print model report:
+    y_hat = clf.predict(X)
+    y_hat_proba = clf.predict_proba(X)[:, 1]
     print "\nModel Report:"
     print "Accuracy (Train) : %.4g" % metrics.accuracy_score(y, y_hat)
     print "AUC Score (Train): %f" % metrics.roc_auc_score(y, y_hat_proba)
 
 
-# 0.9014
-clf = xgb.XGBClassifier()
-modelfit(clf)
-
-
-# 0.8761 60
-def param_n_estimators():
-    param_test = {'n_estimators': range(10, 40, 5)}
-    gsearch = GridSearchCV(
-        estimator=XGBClassifier(learning_rate=0.1, max_depth=6, min_child_weight=5,
-                                gamma=0, subsample=0.9,
-                                colsample_bytree=0.9, objective='binary:logistic', nthread=-1,
-                                scale_pos_weight=1, seed=0),
-        param_grid=param_test, scoring='roc_auc', n_jobs=-1, cv=5, verbose=1)
-    gsearch.fit(X, y)
-    print gsearch.best_params_, gsearch.best_score_
-
-
-# 0.87643 max_depth=7,  min_child_weight=2
 def param_min_child_max_depth():
+    global clf
     param_test = {'max_depth': range(1, 10, 1), 'min_child_weight': range(1, 13, 1)}
     gsearch = GridSearchCV(
-        estimator=XGBClassifier(learning_rate=0.1, n_estimators=20,
-                                gamma=0, subsample=0.9,
-                                colsample_bytree=0.9, objective='binary:logistic', nthread=-1,
-                                scale_pos_weight=1, seed=0),
-        param_grid=param_test, scoring='roc_auc', n_jobs=-1, cv=5, verbose=1)
+        estimator=clf,
+        param_grid=param_test, scoring='roc_auc', n_jobs=-1, cv=4, verbose=0)
     gsearch.fit(X, y)
+
+    clf = gsearch.best_estimator_
     print gsearch.best_params_, gsearch.best_score_
 
 
-# 0.87643 gamma=0.2
 def param_gamma():
+    global clf
     param_test = {'gamma': np.arange(0, 1.1, 0.1)}
     gsearch = GridSearchCV(
-        estimator=XGBClassifier(learning_rate=0.1, n_estimators=25,
-                                max_depth=7, min_child_weight=2, subsample=0.9,
-                                colsample_bytree=0.9, objective='binary:logistic', nthread=-1,
-                                scale_pos_weight=1, seed=0),
-        param_grid=param_test, scoring='roc_auc', n_jobs=-1, cv=5, verbose=1)
+        estimator=clf,
+        param_grid=param_test, scoring='roc_auc', n_jobs=-1, cv=4, verbose=0)
     gsearch.fit(X, y)
+
+    clf = gsearch.best_estimator_
     print gsearch.best_params_, gsearch.best_score_
 
 
-# 0.87643 subsample=0.6, colsample_bytree=0.9
 def param_subsample_colsample_bytree():
+    global clf
     param_test = {'subsample': np.arange(0.6, 1.05, 0.1), 'colsample_bytree': np.arange(0.6, 1.05, 0.1)}
     gsearch = GridSearchCV(
-        estimator=XGBClassifier(learning_rate=0.1, n_estimators=25,
-                                max_depth=7, min_child_weight=2, gamma=0.2,
-                                objective='binary:logistic', nthread=-1,
-                                scale_pos_weight=1, seed=0),
-        param_grid=param_test, scoring='roc_auc', n_jobs=-1, cv=5, verbose=1)
+        estimator=clf,
+        param_grid=param_test, scoring='roc_auc', n_jobs=-1, cv=4, verbose=0)
     gsearch.fit(X, y)
+
+    clf = gsearch.best_estimator_
     print gsearch.best_params_, gsearch.best_score_
 
 
-# 0.87643 reg_alpha = 1e-2
 def param_reg_alpha():
+    global clf
     param_test = {'reg_alpha': [1e-3, 1e-2, 0.1, 1, 100]}
     gsearch = GridSearchCV(
-        estimator=XGBClassifier(learning_rate=0.1, n_estimators=25,
-                                max_depth=7, min_child_weight=2, gamma=0.2,
-                                subsample=0.7, colsample_bytree=0.8,
-                                objective='binary:logistic', nthread=-1,
-                                scale_pos_weight=1, seed=0),
-        param_grid=param_test, scoring='roc_auc', n_jobs=-1, cv=5, verbose=1)
+        estimator=clf,
+        param_grid=param_test, scoring='roc_auc', n_jobs=-1, cv=4, verbose=0)
     gsearch.fit(X, y)
+
+    clf = gsearch.best_estimator_
     print gsearch.best_params_, gsearch.best_score_
 
 
-# param_n_estimators()
-# param_min_child_max_depth()
-# param_gamma()
-# param_subsample_colsample_bytree()
-# param_reg_alpha()
+model_fit()
+param_min_child_max_depth()
+param_gamma()
+param_subsample_colsample_bytree()
+param_reg_alpha()
 
-# 0.9012
-clf_tuned = XGBClassifier(learning_rate=0.01, n_estimators=250,
-                          max_depth=7, min_child_weight=2, gamma=0.2,
-                          subsample=0.7, colsample_bytree=0.8,
-                          objective='binary:logistic', nthread=-1,
-                          scale_pos_weight=1, seed=0, reg_alpha=1e-2)
-modelfit(clf_tuned)
+clf.set_params(learning_rate=0.01)
+model_fit(early_stopping_rounds=35)
 
-# 0.79904 on submission
 predictions = clf.predict(df_test)
-result = pd.DataFrame({'PassengerId': test_df['PassengerId'].as_matrix(), 'Survived': predictions.astype(np.int32)})
-result.to_csv(path_result + 'ensemble_predictions.csv', index=False)
+result = pd.DataFrame({
+    'PassengerId': test_df['PassengerId'].as_matrix(),
+    'Survived': predictions.astype(np.int32)
+})
+result.to_csv(path_result + 'stacking_predictions.csv', index=False)

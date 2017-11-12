@@ -89,7 +89,17 @@ def fe_family(combine):
 
 
 def fe_dummy(combine):
-    return pd.get_dummies(combine, columns=['Age', 'Cabin', 'Embarked', 'Ticket', 'Fare', 'Sex', 'Pclass', 'Title', 'FamilySize'])
+    return pd.get_dummies(combine, columns=[
+        'Age',
+        'Cabin',
+        'Embarked',
+        'Ticket',
+        'Fare',
+        'Sex',
+        'Pclass',
+        'Title',
+        'FamilySize'
+    ])
 
 
 def fe(train_df, test_df):
@@ -114,9 +124,8 @@ def fe(train_df, test_df):
     train_df = combine[combine['TrainTest'] == 1].drop(['TrainTest'], axis=1)
     test_df = combine[combine['TrainTest'] == 0].drop(['TrainTest'], axis=1)
 
-    train_df.info()
-    test_df.info()
-
+    # train_df.info()
+    # test_df.info()
     X = train_df.drop('PassengerId', axis=1)
     X_test = test_df.drop('PassengerId', axis=1).copy()
 
