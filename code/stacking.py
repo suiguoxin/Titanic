@@ -65,35 +65,35 @@ svc_params = {
 
 svc = SVC(**svc_params)
 knn = KNeighborsClassifier(n_neighbors=4)
-# lr = LogisticRegression()
-# rf = RandomForestClassifier(n_estimators=50)
+lr = LogisticRegression()
+rf = RandomForestClassifier(n_estimators=50)
 # gaussian = GaussianNB()
-# perceptron = Perceptron()
+perceptron = Perceptron()
 # test = LinearSVC()
 
 svc_oof_train, svc_oof_test = get_oof(svc, X, y, df_test)
 knn_oof_train, knn_oof_test = get_oof(knn, X, y, df_test)
-# lr_oof_train, lr_oof_test = get_oof(lr, X, y, df_test)
-# rf_oof_train, rf_oof_test = get_oof(rf, X, y, df_test)
+lr_oof_train, lr_oof_test = get_oof(lr, X, y, df_test)
+rf_oof_train, rf_oof_test = get_oof(rf, X, y, df_test)
 # gaussian_oof_train, gaussian_oof_test = get_oof(gaussian, X, y, df_test)
-# perceptron_oof_train, perceptron_oof_test = get_oof(perceptron, X, y, df_test, proba=False)
+perceptron_oof_train, perceptron_oof_test = get_oof(perceptron, X, y, df_test, proba=False)
 # test_oof_train, test_oof_test = get_oof(test, X, y, df_test, proba=False)
 
 base_predictions_train = pd.DataFrame({'SVC': svc_oof_train.ravel(),
                                        'KNN': knn_oof_train.ravel(),
-                                       # 'LR': lr_oof_train.ravel(),
-                                       # 'RF': rf_oof_train.ravel()
+                                       'LR': lr_oof_train.ravel(),
+                                       'RF': rf_oof_train.ravel(),
                                        # 'Gaussian': gaussian_oof_train.ravel()
-                                       # 'Perceptron': perceptron_oof_train.ravel()
+                                       'Perceptron': perceptron_oof_train.ravel()
                                        # 'Test': test_oof_train.ravel()
                                        })
 
 base_predictions_test = pd.DataFrame({'SVC': svc_oof_test.ravel(),
                                       'KNN': knn_oof_test.ravel(),
-                                      # 'LR': lr_oof_test.ravel(),
-                                      # 'RF': rf_oof_test.ravel()
+                                      'LR': lr_oof_test.ravel(),
+                                      'RF': rf_oof_test.ravel(),
                                       # 'Gaussian': gaussian_oof_test.ravel()
-                                      # 'Perceptron': perceptron_oof_test.ravel()
+                                      'Perceptron': perceptron_oof_test.ravel()
                                       # 'Test': test_oof_test.ravel()
                                       })
 
@@ -109,7 +109,7 @@ def model_fit(early_stopping_rounds=25):
     early_stopping_rounds = early_stopping_rounds
     dtrain = xgb.DMatrix(X, label=y)
     params = clf.get_params()
-    cv_result = xgb.cv(params, dtrain, num_boost_round=500, nfold=cv_folds, metrics='auc',
+    cv_result = xgb.cv(params, dtrain, num_boost_round=600, nfold=cv_folds, metrics='auc',
                        early_stopping_rounds=early_stopping_rounds)
 
     best_iteration = cv_result.shape[0]
@@ -181,7 +181,7 @@ param_subsample_colsample_bytree()
 param_reg_alpha()
 
 clf.set_params(learning_rate=0.01)
-model_fit(early_stopping_rounds=35)
+model_fit(early_stopping_rounds=40)
 
 predictions = clf.predict(df_test)
 result = pd.DataFrame({

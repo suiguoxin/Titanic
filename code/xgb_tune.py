@@ -22,13 +22,15 @@ def model_fit(early_stopping_rounds=25):
     early_stopping_rounds = early_stopping_rounds
     dtrain = xgb.DMatrix(X, label=y)
     params = clf.get_params()
-    cv_result = xgb.cv(params, dtrain, num_boost_round=500, nfold=cv_folds, metrics='auc',
+    cv_result = xgb.cv(params, dtrain, num_boost_round=600, nfold=cv_folds, metrics='auc',
                        early_stopping_rounds=early_stopping_rounds)
 
     best_iteration = cv_result.shape[0]
     test_auc_mean = cv_result['test-auc-mean'][best_iteration - 1]
+    # test_error_mean = cv_result['test-error-mean'][best_iteration - 1]
     print "Best iteration: %d" % best_iteration
     print "test auc mean: %f" % test_auc_mean
+    # print "test error mean: %f" % test_error_mean
     clf.set_params(n_estimators=best_iteration)
     clf.fit(X, y)
 

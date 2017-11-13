@@ -1,4 +1,5 @@
 import pandas as pd
+from collections import Counter
 
 
 def fe_title_name(combine):
@@ -70,12 +71,16 @@ def fe_embarked(combine):
 def fe_fare(combine):
     combine['Fare'].fillna(combine['Fare'].dropna().median(), inplace=True)
 
-    combine.loc[combine['Fare'] <= 7.91, 'Fare'] = 0
-    combine.loc[(combine['Fare'] > 7.91) & (combine['Fare'] <= 14.454), 'Fare'] = 1
-    combine.loc[(combine['Fare'] > 14.454) & (combine['Fare'] <= 31), 'Fare'] = 2
-    combine.loc[combine['Fare'] > 31, 'Fare'] = 3
+    for idx, row in combine.iterrows():
+        count = Counter(combine.Ticket)[row.Ticket]
+        if count > 1:
+            combine.loc[idx, 'Fare'] = row.Fare / count
 
-    combine['Age'] = combine['Age'].astype(int)
+    combine.loc[combine['Fare'] <= 7.775, 'Fare'] = 0
+    combine.loc[(combine['Fare'] > 7.775) & (combine['Fare'] <= 13), 'Fare'] = 1
+    combine.loc[combine['Fare'] > 13, 'Fare'] = 2
+
+    combine['Fare'] = combine['Fare'].astype(int)
 
 
 def fe_family(combine):
@@ -109,24 +114,29 @@ def fe(train_df, test_df):
     test_df['TrainTest'] = 0
 
     combine = train_df.append(test_df)
+    combine.reset_index(drop=True, inplace=True)
 
-    combine['Ticket'] = combine['Ticket'].str[0]
+    # combine.drop('Cabin', axis=1, inplace=True)
     combine['Cabin'] = combine['Cabin'].str[0]
     combine['Cabin'] = combine['Cabin'].fillna('U')
+
+    fe_fare(combine)
+    combine['Ticket'] = combine['Ticket'].str[0]
+    # combine.drop('Ticket', axis=1, inplace=True)
 
     fe_title_name(combine)
     fe_age(combine)
     fe_family(combine)
     fe_embarked(combine)
-    fe_fare(combine)
     combine = fe_dummy(combine)
 
     train_df = combine[combine['TrainTest'] == 1].drop(['TrainTest'], axis=1)
     test_df = combine[combine['TrainTest'] == 0].drop(['TrainTest'], axis=1)
+    test_df.reset_index(drop=True, inplace=True)
 
     # train_df.info()
     # test_df.info()
     X = train_df.drop('PassengerId', axis=1)
-    X_test = test_df.drop('PassengerId', axis=1).copy()
+    X_test = test_df.drop('PassengerId', axis=1)
 
     return X, y, X_test
